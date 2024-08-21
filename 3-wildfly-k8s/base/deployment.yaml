@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wildfly
+spec:
+  selector:
+    matchLabels:
+      app: wildfly
+  template:
+    metadata:
+      labels:
+        app: wildfly
+    spec:
+      containers:
+      - name: wildfly
+        image: jboss/wildfly:18.0.1.Final
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9990
+          name: management
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 9990
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9990
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 500m
+          limits:
+            memory: 1Gi
+            cpu: 1000m
+        volumeMounts:
+        - name: config
+          mountPath: /opt/jboss/wildfly/customization
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          /opt/jboss/wildfly/bin/standalone.sh -c standalone-full.xml -b 0.0.0.0 -bmanagement 0.0.0.0 &
+          until /opt/jboss/wildfly/bin/jboss-cli.sh --connect --command=:read-attribute\(name=server-state\) 2> /dev/null | grep -q running; do
+            echo "Waiting for WildFly to start..."
+            sleep 5
+          done
+          echo "WildFly started. Applying configuration..."
+          /opt/jboss/wildfly/bin/jboss-cli.sh --connect --file=/opt/jboss/wildfly/customization/standalone-full-add-metrics.cli
+          wait
+      volumes:
+      - name: config
+        configMap:
+          name: wildfly-config

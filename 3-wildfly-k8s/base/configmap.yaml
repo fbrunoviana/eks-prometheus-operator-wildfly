@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wildfly-config
+data:
+  standalone-full-add-metrics.cli: |
+    # Enable microprofile metrics subsystem
+    if (outcome != success) of /subsystem=microprofile-metrics-smallrye:read-resource
+      /extension=org.wildfly.extension.microprofile.metrics-smallrye:add
+      /subsystem=microprofile-metrics-smallrye:add
+    end-if
+
+    # Configure metrics subsystem
+    /subsystem=microprofile-metrics-smallrye:write-attribute(name=security-enabled,value=false)
+    /subsystem=microprofile-metrics-smallrye:write-attribute(name=exposed-subsystems,value=["*"])
+    /subsystem=microprofile-metrics-smallrye:write-attribute(name=prefix,value=${wildfly.metrics.prefix:wildfly})
+
+    # Enable health subsystem
+    if (outcome != success) of /subsystem=microprofile-health-smallrye:read-resource
+      /extension=org.wildfly.extension.microprofile.health-smallrye:add
+      /subsystem=microprofile-health-smallrye:add
+    end-if
+
+    # Expose health and metrics endpoints via HTTP
+    /subsystem=undertow/server=default-server/host=default-host/location="/health":add(handler=default)
+    /subsystem=undertow/server=default-server/host=default-host/location="/metrics":add(handler=default)
+
+    # Reload the server configuration
+    reload

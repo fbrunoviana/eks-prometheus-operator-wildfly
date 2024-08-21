@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: wildfly
+  labels:
+    prometheus: main
+spec:
+  selector:
+    matchLabels:
+      app: wildfly
+  endpoints:
+  - port: management
+    path: /metrics
+    interval: 15s
